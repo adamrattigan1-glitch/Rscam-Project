@@ -1,0 +1,24 @@
+#!/bin/bash
+#PBS -N 1D_MWF
+#PBS -e out.err                                                                                  
+#PBS -o out.out
+#PBS -l select=1:ncpus=1:nogpu
+#PBS -k oe
+
+echo Working in $workdir
+
+cd $workdir
+
+export HDF5_USE_FILE_LOCKING='FALSE'
+conda_base="/apps/intel/oneapi/intelpython/latest/"
+. $conda_base/etc/profile.d/conda.sh
+conda activate dedalus2_mpi
+
+# IF YOU NEED TO RESTART:
+##ln -s ./snapshots/snapshots_s1.h5 restart.h5
+# RUN
+/apps/intel/oneapi/mpi/2021.1.1/bin/mpirun -np 1 python3 main.py
+/apps/intel/oneapi/mpi/2021.1.1/bin/mpirun -np 1 python3 -m dedalus merge_procs snapshots --cleanup
+/apps/intel/oneapi/mpi/2021.1.1/bin/mpirun -np 1 python3 -m dedalus merge_procs time_series --cleanup
+
+
