@@ -20,7 +20,8 @@ Lz = 256.0
 beta = np.pi/2
 
 # Drag
-alpha = 0.01
+# alpha = 0.01 #This is the alpha for linear 
+alpha = 0.009 #This is the alpha for linear cubic
 
 # Closures
 a    = 0.3
