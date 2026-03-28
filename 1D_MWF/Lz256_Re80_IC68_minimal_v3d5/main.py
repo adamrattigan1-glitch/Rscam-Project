@@ -419,7 +419,7 @@ problem.parameters['ulam'] = ulam
 problem.parameters['wlam'] = wlam
 c_lc= .1
 norm_lc = 1 + c_lc
-problem.parameters['-c_lc'] = c_lc
+problem.parameters['c_lc'] = c_lc
 problem.parameters['norm_lc'] = norm_lc
 
 alpha_u1_lin = alpha * (1 + 3*c_lc * ulam**2) / norm_lc   # effective linear coeff for u1
@@ -428,6 +428,8 @@ alpha_u1_c   = alpha * c_lc / norm_lc                       # cubic term coeff
 problem.parameters['alpha_u1_lin'] = alpha_u1_lin
 problem.parameters['alpha_u1_q']   = alpha_u1_q
 problem.parameters['alpha_u1_c']   = alpha_u1_c
+alpha_tke = alpha_u1_lin
+problem.parameters['alpha_tke'] = alpha_tke
 
 alpha_w1_lin = alpha * (1 + 3*c_lc * wlam**2) / norm_lc
 alpha_w1_q   = 3 * alpha * c_lc * wlam / norm_lc
@@ -456,9 +458,9 @@ problem.substitutions['nu_zt(q0)'] = "C_zt*q0"
 problem.substitutions['q1(w1,q0)'] = "(-(wlam+w1)*dz(q0))/(beta**2/Re + 2*kappa + 2*alpha_tke)"
 # Equtions of motion
 # Large scales
-problem.add_equation("dt(u0) + 3*alpha*u0 - dz(dz(u0))/Re + S*wlam*dz(u1) + (1-S)*v1*ulam*beta = -(1-S)*v1*u1*beta - S*w1*dz(u1)")
-problem.add_equation("dt(u1) + alpha*u1 - dz(dz(u1))/Re + beta**2*u1/Re + wlam*dz(u0) = -A(q0)*beta*cos(theta) -w1*dz(u0)")
-problem.add_equation("dt(zeta) + alpha*beta*w1 - dz(dz(zeta))/Re + beta**2*zeta/Re = -beta**2*A(q0)*sin(theta) - dz(dz(A(q0)))*sin(theta)")
+problem.add_equation("dt(u0) + alpha_u0_lin*u0 - dz(dz(u0))/Re + S*wlam*dz(u1) + (1-S)*v1*ulam*beta = -(1-S)*v1*u1*beta - S*w1*dz(u1) -alpha_u0_c*u1**3")
+problem.add_equation("dt(u1) + alpha_u1_lin*u1 - dz(dz(u1))/Re + beta**2*u1/Re + wlam*dz(u0) = -A(q0)*beta*cos(theta) -w1*dz(u0) - alpha_u1_q*u1**2 - alpha_u1_c*u1**3")
+problem.add_equation("dt(zeta) + alpha_w1_lin*beta*w1 - dz(dz(zeta))/Re + beta**2*zeta/Re = -beta**2*A(q0)*sin(theta) - dz(dz(A(q0)))*sin(theta)-alpha_w1_q*beta*w1**2 -alpha_w1_q*beta*w1**3")
 problem.add_equation("zeta - (beta*w1-dz(v1)) = 0")
 problem.add_equation("-beta*v1 + dz(w1) = 0")
 # Turbulence
@@ -468,7 +470,7 @@ if rand_force:
     # Build solver (first order due to random forcing)
     solver = problem.build_solver(de.timesteppers.RK111)
 else:
-    problem.add_equation("dt(q0) -dz(dz(q0))/Re = dz(nu_zt(q0)*dz(q0)) + beta*A(q0)*cos(theta)*ulam/2 + beta*A(q0)*sin(theta)*wlam/2 + beta*A(q0)*cos(theta)*u1/2 +beta*A(q0)*sin(theta)*w1/2 + A(q0)*sin(theta)*dz(v1)/2 - 2*alpha_tke10*q0 - eps(q0) -v1*q1(w1,q0)*beta/2 -(wlam+w1)*dz(q1(w1,q0))/2")    
+    problem.add_equation("dt(q0) -dz(dz(q0))/Re = dz(nu_zt(q0)*dz(q0)) + beta*A(q0)*cos(theta)*ulam/2 + beta*A(q0)*sin(theta)*wlam/2 + beta*A(q0)*cos(theta)*u1/2 +beta*A(q0)*sin(theta)*w1/2 + A(q0)*sin(theta)*dz(v1)/2 - 2*alpha_tke*q0 - eps(q0) -v1*q1(w1,q0)*beta/2 -(wlam+w1)*dz(q1(w1,q0))/2")    
 
     # Build solver
     ##solver = problem.build_solver(de.timesteppers.RK443)

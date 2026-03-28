@@ -108,8 +108,8 @@ problem.substitutions['q1(w1,q0)'] = "(-(wlam+w1)*dz(q0))/(beta**2/Re + 2*kappa 
 problem.add_equation("dt(u0) + 3*alpha*u0 - dz(dz(u0))/Re + S*wlam*dz(u1) + (1-S)*v1*ulam*beta = -(1-S)*v1*u1*beta - S*w1*dz(u1)")
 problem.add_equation("dt(u1) + alpha*u1 - dz(dz(u1))/Re + beta**2*u1/Re + wlam*dz(u0) = -A(q0)*beta*cos(theta) -w1*dz(u0)")
 problem.add_equation("dt(zeta) + alpha*beta*w1 - dz(dz(zeta))/Re + beta**2*zeta/Re = -beta**2*A(q0)*sin(theta) - dz(dz(A(q0)))*sin(theta)")
-problem.add_equation("zeta - (beta*w1-dz(v1)) = 0")
-problem.add_equation("-beta*v1 + dz(w1) = 0")
+problem.add_equation("zeta - (beta*w1-dz(v1)) = 0") #def of zeta 
+problem.add_equation("-beta*v1 + dz(w1) = 0") #incompressability 
 # Turbulence
 if rand_force:
     problem.add_equation("dt(q0) -dz(dz(q0))/Re = dz(nu_zt(q0)*dz(q0)) +  beta*A(q0)*cos(theta)*ulam/2 + beta*A(q0)*sin(theta)*wlam/2 + F(q0,mu,sigma,deltat) + beta*A(q0)*cos(theta)*u1/2 +beta*A(q0)*sin(theta)*w1/2 + A(q0)*sin(theta)*dz(v1)/2 - 2*alpha*q0 - eps(q0) -v1*q1(w1,q0)*beta/2 -(wlam+w1)*dz(q1(w1,q0))/2")
