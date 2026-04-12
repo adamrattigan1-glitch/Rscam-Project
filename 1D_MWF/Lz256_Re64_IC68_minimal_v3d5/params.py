@@ -20,8 +20,8 @@ Lz = 256.0
 beta = np.pi/2
 
 # Drag
-# alpha = 0.01 #This is the alpha for linear 
-alpha = 0.009 #This is the alpha for linear cubic
+alpha = 0.01 #This is the alpha for linear 
+# alpha = 0.009 #This is the alpha for linear cubic
 
 # Closures
 a    = 0.3
@@ -57,7 +57,7 @@ dt_init= (Lz/Nz)**2/0.08/C_zt/16
 ##sim_tmax = np.inf  # simulation time units
 sim_tmax = np.inf  # simulation time units
 ##real_tmax = (11+55/60.)*60*60 # 12*60= 12 mins. Real time is in seconds ... 12 hours = 43200
-real_tmax = (1+25/60.)*60*60 # 12*60= 12 mins. Real time is in seconds ... 12 hours = 43200
+real_tmax = 30*60 # 12*60= 12 mins. Real time is in seconds ... 12 hours = 43200
 ##real_tmax = (14/60.)*60*60 # 12*60= 12 mins. Real time is in seconds ... 12 hours = 43200
 # real_tmax = np.inf
 # Simulation will stop when the first of either is reached.

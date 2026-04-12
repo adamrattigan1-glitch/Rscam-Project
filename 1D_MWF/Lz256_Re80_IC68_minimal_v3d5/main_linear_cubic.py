@@ -55,13 +55,22 @@ import vector_cal as vc
 # DRAG PARAMETERS
 # ══════════════════════════════════════════════════════════════════════════════
 
+# c_lc is the cubic correction coefficient.
+# Setting c_lc=0.1 means the cubic term is 10% as strong as the linear term
+# at u=1.  Increasing this increases the nonlinear correction strength.
+c_lc = 0.1
+
+# norm_lc ensures h(1) = (1 + c_lc) / norm_lc = 1 exactly.
+# This is critical: if h(1) != 1 the body force no longer sustains the
+# laminar state and the laminar solution will drift away from u=1.
+norm_lc = 1.0 + c_lc    # = 1.1
 
 # Log the key parameters so we can verify them in the output files
 # logger.info('Drag: linear-cubic, c_lc=%.3f, norm_lc=%.3f' % (c_lc, norm_lc))
-# logger.info('alpha_eff_u1=%.5f, alpha_eff_w1=%.5f, alpha_eff_u0=%.5f'
-#             % (alpha_eff_u1, alpha_eff_w1, alpha_eff_u0))
-# logger.info('alpha_q_u1=%.5f, alpha_q_w1=%.5f' % (alpha_q_u1, alpha_q_w1))
-# logger.info('alpha_c_shear=%.5f, alpha_c_bulk=%.5f' % (alpha_c_shear, alpha_c_bulk))
+# logger.info('alpha * (1.0 + 3.0*c_lc * ulam**2) / norm_lc=%.5f, alpha * (1.0 + 3.0*c_lc * wlam**2) / norm_lc=%.5f, 3.0 * alpha / norm_lc=%.5f'
+#             % (alpha * (1.0 + 3.0*c_lc * ulam**2) / norm_lc, alpha * (1.0 + 3.0*c_lc * wlam**2) / norm_lc, 3.0 * alpha / norm_lc))
+# logger.info('3.0 * alpha * c_lc * ulam / norm_lc=%.5f, 3.0 * alpha * c_lc * wlam / norm_lc=%.5f' % (3.0 * alpha * c_lc * ulam / norm_lc, 3.0 * alpha * c_lc * wlam / norm_lc))
+# logger.info('alpha * c_lc / norm_lc=%.5f, 3.0 * alpha * c_lc / norm_lc=%.5f' % (alpha * c_lc / norm_lc, 3.0 * alpha * c_lc / norm_lc))
 
 # ══════════════════════════════════════════════════════════════════════════════
 # DOMAIN
@@ -92,65 +101,6 @@ S  = (beta - np.sin(beta)*np.cos(beta)) / (2*beta)
 ulam = np.cos(theta)    # along-band laminar amplitude
 wlam = np.sin(theta)    # across-band laminar amplitude
 
-# c_lc is the cubic correction coefficient.
-# Setting c_lc=0.1 means the cubic term is 10% as strong as the linear term
-# at u=1.  Increasing this increases the nonlinear correction strength.
-c_lc = 0.1
-
-# norm_lc ensures h(1) = (1 + c_lc) / norm_lc = 1 exactly.
-# This is critical: if h(1) != 1 the body force no longer sustains the
-# laminar state and the laminar solution will drift away from u=1.
-norm_lc = 1.0 + c_lc    # = 1.1
-
-# ── Effective linear drag coefficients ───────────────────────────────────────
-# When we expand the cubic drag on the TOTAL velocity (U_lam + u_perturb)
-# and subtract the body force contribution (which cancels drag on U_lam),
-# what remains on the perturbation has three parts:
-#
-#   (ulam + u1)^3 - ulam^3 = 3*ulam^2*u1  +  3*ulam*u1^2  +  u1^3
-#   └── linear in u1 ──┘   └── quadratic ─┘  └── cubic ─┘
-#
-# The linear part is absorbed into the LHS as a modified drag coefficient.
-# The quadratic and cubic parts stay on the RHS (they are nonlinear).
-#
-# ulam = cos(theta) is the laminar along-band velocity amplitude (constant in z).
-# wlam = sin(theta) is the laminar across-band velocity amplitude (constant in z).
-# Because ulam ≠ wlam (unless theta=45°), u1 and w1 get different coefficients.
-
-# Effective linear drag coefficient for the u1 (along-band shear) mode.
-# Original was just: alpha
-# Now becomes: alpha*(1 + 3*c_lc*ulam^2)/norm_lc
-alpha_eff_u1 = alpha * (1.0 + 3.0*c_lc * ulam**2) / norm_lc
-
-# Effective linear drag coefficient for the w1 (across-band shear) mode.
-# Enters the zeta equation via the beta*w1 drag term.
-alpha_eff_w1 = alpha * (1.0 + 3.0*c_lc * wlam**2) / norm_lc
-
-# Effective linear drag coefficient for the u0 (bulk) mode.
-# The original bulk drag is 3*alpha (alpha0 = 3*alpha in the paper).
-# Because the laminar u0 = 0 there are NO quadratic cross-terms — only
-# a rescaled linear term and a pure cubic term.
-alpha_eff_u0 = 3.0 * alpha / norm_lc
-
-# Quadratic cross-term coefficients (appear on RHS, negative sign).
-# These come from the 3*ulam*u1^2 and 3*wlam*w1^2 terms in the expansion.
-alpha_q_u1 = 3.0 * alpha * c_lc * ulam / norm_lc
-alpha_q_w1 = 3.0 * alpha * c_lc * wlam / norm_lc
-
-# Cubic term coefficients (appear on RHS, negative sign).
-# alpha_c_shear applies to both u1 and w1 (both are shear modes with same alpha).
-# alpha_c_bulk applies to u0 (bulk mode has 3*alpha base drag).
-alpha_c_shear = alpha * c_lc / norm_lc
-alpha_c_bulk  = 3.0 * alpha * c_lc / norm_lc
-
-# Effective TKE drag coefficient.
-# In the TKE equation the drag term is -2*alpha*q0 for linear drag.
-# For nonlinear drag this becomes -2*alpha_eff*q0 where alpha_eff is evaluated
-# at the local mean flow. We use alpha_eff_u1 as the representative value
-# (the along-band shear mode carries most of the turbulent production).
-# This is an approximation valid for small c_lc; the full expression would
-# include u1-dependent corrections of order c_lc^2 which are negligible at c_lc=0.1.
-alpha_eff_tke = alpha_eff_u1
 # Timestep
 kcut = np.max(kz)
 if rand_force:
@@ -186,22 +136,12 @@ problem.parameters['eta']   = eta
 problem.parameters['Re']    = Re
 problem.parameters['c1']    = c1
 problem.parameters['C_zt']  = C_zt
+problem.parameters['alpha'] = alpha
 problem.parameters['kappa'] = kappa
 problem.parameters['ulam']  = ulam
 problem.parameters['wlam']  = wlam
-
-# ── New drag coefficients ──────────────────────────────────────────────────────
-# These are the constants derived in the drag parameter block above.
-# Passing them as Dedalus parameters avoids recomputing them at every grid point.
-problem.parameters['alpha_eff_u1']  = alpha_eff_u1
-problem.parameters['alpha_eff_w1']  = alpha_eff_w1
-problem.parameters['alpha_eff_u0']  = alpha_eff_u0
-problem.parameters['alpha_q_u1']    = alpha_q_u1
-problem.parameters['alpha_q_w1']    = alpha_q_w1
-problem.parameters['alpha_c_shear'] = alpha_c_shear
-problem.parameters['alpha_c_bulk']  = alpha_c_bulk
-problem.parameters['alpha_eff_tke'] = alpha_eff_tke
-
+problem.parameters['c_lc']    = c_lc
+problem.parameters['norm_lc'] = norm_lc
 if rand_force:
     de.operators.parseables['F'] = Forcing
     problem.parameters['mu']     = mu
@@ -217,9 +157,9 @@ problem.substitutions['nu_zt(q0)'] = "C_zt*q0"
 # q1 quasi-static approximation.
 # The denominator contains the q1 decay rate. The 2*alpha term in the original
 # represents the Ekman drag contribution to q1 decay. For linear-cubic drag
-# this becomes 2*alpha_eff_tke — the effective drag coefficient at the mean flow.
+# this becomes 2*alpha * (1.0 + 3.0*c_lc * ulam**2) / norm_lc — the effective drag coefficient at the mean flow.
 problem.substitutions['q1(w1,q0)'] = \
-    "(-(wlam+w1)*dz(q0)) / (beta**2/Re + 2*kappa + 2*alpha_eff_tke)"
+    "(-(wlam+w1)*dz(q0)) / (beta**2/Re + 2*kappa + 2*alpha * (1.0 + 3.0*c_lc * ulam**2) / norm_lc)"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # EQUATIONS OF MOTION
@@ -227,59 +167,59 @@ problem.substitutions['q1(w1,q0)'] = \
 
 # ── u0 equation: bulk (y-uniform) along-band momentum ─────────────────────────
 # ORIGINAL:  dt(u0) + 3*alpha*u0 - ...  = RHS
-# CHANGE:    3*alpha  →  alpha_eff_u0  = 3*alpha/norm_lc  (LHS, linear)
-#            Add:     - alpha_c_bulk*u0**3                 (RHS, cubic)
+# CHANGE:    3*alpha  →  3.0 * alpha / norm_lc  = 3*alpha/norm_lc  (LHS, linear)
+#            Add:     - 3.0 * alpha * c_lc / norm_lc*u0**3                 (RHS, cubic)
 #
 # The bulk mode has no laminar component so there are NO quadratic cross-terms.
 # Just the rescaled linear coefficient and a pure cubic self-term.
 # The cubic term is moved to the RHS and negated (Dedalus convention: LHS terms
 # are what you write positive on the left, RHS is what drives them).
 problem.add_equation(
-    "dt(u0) + alpha_eff_u0*u0 - dz(dz(u0))/Re"
+    "dt(u0) + 3.0 * alpha / norm_lc*u0 - dz(dz(u0))/Re"
     " + S*wlam*dz(u1) + (1-S)*v1*ulam*beta"
     " = -(1-S)*v1*u1*beta - S*w1*dz(u1)"
-    " - alpha_c_bulk*u0**3"
-    # The cubic drag on u0 is -alpha_c_bulk*u0^3 (opposes motion).
+    " - 3.0 * alpha * c_lc / norm_lc*u0**3"
+    # The cubic drag on u0 is -3.0 * alpha * c_lc / norm_lc*u0^3 (opposes motion).
     # It's on the RHS because it's nonlinear and treated explicitly.
 )
 
 # ── u1 equation: shear (sin(beta*y)) along-band momentum ──────────────────────
 # ORIGINAL:  dt(u1) + alpha*u1 - ...  = RHS
-# CHANGE:    alpha  →  alpha_eff_u1  (LHS, linear part of cubic expansion)
-#            Add:   - alpha_q_u1*u1**2   (RHS, quadratic cross-term from 3*ulam*u1^2)
-#            Add:   - alpha_c_shear*u1**3 (RHS, pure cubic term u1^3)
+# CHANGE:    alpha  →  alpha * (1.0 + 3.0*c_lc * ulam**2) / norm_lc  (LHS, linear part of cubic expansion)
+#            Add:   - 3.0 * alpha * c_lc * ulam / norm_lc*u1**2   (RHS, quadratic cross-term from 3*ulam*u1^2)
+#            Add:   - alpha * c_lc / norm_lc*u1**3 (RHS, pure cubic term u1^3)
 #
 # Why these terms?  Total along-band shear = ulam + u1.
 # Expanding (ulam + u1)^3 - ulam^3:
-#   3*ulam^2*u1  →  absorbed into LHS as alpha_eff_u1
-#   3*ulam*u1^2  →  goes to RHS as -alpha_q_u1*u1^2
-#   u1^3         →  goes to RHS as -alpha_c_shear*u1^3
+#   3*ulam^2*u1  →  absorbed into LHS as alpha * (1.0 + 3.0*c_lc * ulam**2) / norm_lc
+#   3*ulam*u1^2  →  goes to RHS as -3.0 * alpha * c_lc * ulam / norm_lc*u1^2
+#   u1^3         →  goes to RHS as -alpha * c_lc / norm_lc*u1^3
 problem.add_equation(
-    "dt(u1) + alpha_eff_u1*u1 - dz(dz(u1))/Re + beta**2*u1/Re + wlam*dz(u0)"
+    "dt(u1) + alpha * (1.0 + 3.0*c_lc * ulam**2) / norm_lc*u1 - dz(dz(u1))/Re + beta**2*u1/Re + wlam*dz(u0)"
     " = -A(q0)*beta*cos(theta) - w1*dz(u0)"
-    " - alpha_q_u1*u1**2"
+    " - 3.0 * alpha * c_lc * ulam / norm_lc*u1**2"
     # Quadratic cross-term: 3*alpha*c_lc*ulam/norm_lc * u1^2.
     # This arises because the laminar flow ulam is finite, so cubic drag
     # on (ulam+u1) produces a term proportional to ulam*u1^2.
-    " - alpha_c_shear*u1**3"
+    " - alpha * c_lc / norm_lc*u1**3"
     # Pure cubic: alpha*c_lc/norm_lc * u1^3.  Smallest of the three terms.
 )
 
 # ── zeta equation: shear vorticity (encodes w1 and v1 dynamics) ───────────────
 # ORIGINAL:  dt(zeta) + alpha*beta*w1 - ...  = RHS
-# CHANGE:    alpha  →  alpha_eff_w1  (LHS, linear part for the w1 mode)
-#            Add:   - alpha_q_w1*beta*w1**2    (RHS, quadratic cross-term)
-#            Add:   - alpha_c_shear*beta*w1**3  (RHS, pure cubic)
+# CHANGE:    alpha  →  alpha * (1.0 + 3.0*c_lc * wlam**2) / norm_lc  (LHS, linear part for the w1 mode)
+#            Add:   - 3.0 * alpha * c_lc * wlam / norm_lc*beta*w1**2    (RHS, quadratic cross-term)
+#            Add:   - alpha * c_lc / norm_lc*beta*w1**3  (RHS, pure cubic)
 #
 # The across-band shear velocity is wlam + w1.
 # Same expansion as u1 but with wlam replacing ulam.
 # The beta factor multiplies the drag terms because zeta = beta*w1 - dz(v1).
 problem.add_equation(
-    "dt(zeta) + alpha_eff_w1*beta*w1 - dz(dz(zeta))/Re + beta**2*zeta/Re"
+    "dt(zeta) + alpha * (1.0 + 3.0*c_lc * wlam**2) / norm_lc*beta*w1 - dz(dz(zeta))/Re + beta**2*zeta/Re"
     " = -beta**2*A(q0)*sin(theta) - dz(dz(A(q0)))*sin(theta)"
-    " - alpha_q_w1*beta*w1**2"
+    " - 3.0 * alpha * c_lc * wlam / norm_lc*beta*w1**2"
     # Quadratic cross-term: 3*alpha*c_lc*wlam/norm_lc * beta * w1^2
-    " - alpha_c_shear*beta*w1**3"
+    " - alpha * c_lc / norm_lc*beta*w1**3"
     # Pure cubic: alpha*c_lc/norm_lc * beta * w1^3
 )
 
@@ -289,12 +229,12 @@ problem.add_equation("-beta*v1 + dz(w1) = 0")
 
 # ── q0 equation: turbulent kinetic energy ─────────────────────────────────────
 # ORIGINAL:  ... - 2*alpha*q0 - ...
-# CHANGE:    2*alpha  →  2*alpha_eff_tke
+# CHANGE:    2*alpha  →  2*alpha * (1.0 + 3.0*c_lc * ulam**2) / norm_lc
 #
 # For linear-cubic drag the TKE equation drag -2*alpha*q comes from
 # Reynolds-averaging -alpha*h(u)*u' over fluctuations. For nonlinear drag
 # this gives approximately -2*alpha_eff*q where alpha_eff is evaluated at
-# the mean flow. We use alpha_eff_tke = alpha_eff_u1 as the representative value.
+# the mean flow. We use alpha * (1.0 + 3.0*c_lc * ulam**2) / norm_lc = alpha * (1.0 + 3.0*c_lc * ulam**2) / norm_lc as the representative value.
 # All production terms and closures are UNCHANGED — they depend on A(q0) which
 # models the Reynolds stress and does not depend on the drag formulation.
 if rand_force:
@@ -307,7 +247,7 @@ if rand_force:
         " + beta*A(q0)*cos(theta)*u1/2"
         " + beta*A(q0)*sin(theta)*w1/2"
         " + A(q0)*sin(theta)*dz(v1)/2"
-        " - 2*alpha_eff_tke*q0"   # CHANGE: alpha → alpha_eff_tke
+        " - 2*alpha * (1.0 + 3.0*c_lc * ulam**2) / norm_lc*q0"   # CHANGE: alpha → alpha * (1.0 + 3.0*c_lc * ulam**2) / norm_lc
         " - eps(q0)"
         " - v1*q1(w1,q0)*beta/2"
         " - (wlam+w1)*dz(q1(w1,q0))/2"
@@ -322,7 +262,7 @@ else:
         " + beta*A(q0)*cos(theta)*u1/2"
         " + beta*A(q0)*sin(theta)*w1/2"
         " + A(q0)*sin(theta)*dz(v1)/2"
-        " - 2*alpha_eff_tke*q0"   # CHANGE: alpha → alpha_eff_tke
+        " - 2*alpha * (1.0 + 3.0*c_lc * ulam**2) / norm_lc*q0"   # CHANGE: alpha → alpha * (1.0 + 3.0*c_lc * ulam**2) / norm_lc
         " - eps(q0)"
         " - v1*q1(w1,q0)*beta/2"
         " - (wlam+w1)*dz(q1(w1,q0))/2"
@@ -357,47 +297,67 @@ if not pathlib.Path('restart.h5').exists():
     zeta['c'][:] = 0.0
     zeta['c'][cond] = E0 * (np.cos(phase[cond]) + 1j*np.sin(phase[cond]))
 
-    if IC_file is None:
-        phase = np.random.uniform(low=-np.pi, high=np.pi, size=local_coeff_shape)
-        q0['c'][:] = 0.0
-        q0['c'][cond] = np.cos(phase[cond]) + 1j*np.sin(phase[cond])
-        q0['g'] += np.abs(np.min(q0['g'])) + 1e-4
-        q0['g'] *= Eq0 / np.max(q0['g'])
-    else:
-        q0.set_scales(2.)    # CHANGE: was 3/2, must match the new dealias factor
-        q_in    = np.loadtxt(IC_file)
-        ind_max = np.argmin(np.abs(q_in - np.max(q_in)))
-        q_in    = np.roll(q_in, -int(ind_max - len(q_in)/2))
-        q0['g'][:] = 0.0
-        q0['g'][:len(q_in)] = q_in
+#     if IC_file==None:
+#         phase = np.random.uniform(low=-np.pi, high=np.pi, size=local_coeff_shape)
+#         q0['c'][:] = 0.0
+#         q0['c'][cond] = np.cos(phase[cond]) + 1j*np.sin(phase[cond])
+#         q0['g'] += np.abs(np.min(q0['g'])) + 1e-4
+#         q0['g'] *= Eq0 / np.max(q0['g'])
+#     else:
+#         q0.set_scales(2.)    # CHANGE: was 3/2, must match the new dedalus factor
+#         q_in    = np.loadtxt(IC_file)
+#         ind_max = np.argmin(np.abs(q_in - np.max(q_in)))
+#         q_in    = np.roll(q_in, -int(ind_max - len(q_in)/2))
+#         q0['g'][:] = 0.0
+#         q0['g'][:len(q_in)] = q_in
 
+#     fh_mode = 'overwrite'
+
+# else:
+#     write, last_dt  = solver.load_state('restart.h5', -1)
+#     solver.sim_time  = 0.0
+#     solver.iteration = 1
+#     fh_mode = 'append'
+
+# solver.stop_sim_time  = sim_tmax
+# solver.stop_wall_time = real_tmax
+
+    
     fh_mode = 'overwrite'
-
+    
 else:
-    write, last_dt  = solver.load_state('restart.h5', -1)
-    solver.sim_time  = 0.0
-    solver.iteration = 1
+    # Restart
+    write, last_dt = solver.load_state('restart.h5', -1)
+
+    ##solver.sim_time = 0.0
+    ##solver.iteration = 1
+
+    # Timestepping and output
+#     dt = last_dt
     fh_mode = 'append'
 
-solver.stop_sim_time  = sim_tmax
+# Integration parameters
+solver.stop_sim_time = sim_tmax
 solver.stop_wall_time = real_tmax
 
-# ══════════════════════════════════════════════════════════════════════════════
-# ANALYSIS OUTPUTS (unchanged from original)
-# ══════════════════════════════════════════════════════════════════════════════
-snapshots = solver.evaluator.add_file_handler(
-    'snapshots', sim_dt=tsnap_sim, wall_dt=tsnap_wall, max_writes=1000, mode=fh_mode)
+############
+# Analysis #
+############
+# SNAPSHOTS
+snapshots = solver.evaluator.add_file_handler('snapshots', sim_dt=tsnap_sim, wall_dt = tsnap_wall, max_writes=1000, mode=fh_mode)
 snapshots.add_system(solver.state)
-snapshots.add_task("q1(w1,q0)", name='q1')
+snapshots.add_task("q1(w1,q0)",name='q1')
 
-t_series = solver.evaluator.add_file_handler('time_series', iter=tseries, mode=fh_mode)
-t_series.add_task("mean(u0*u0 + S*u1*u1 + (1-S)*v1*v1 + S*w1*w1)/2", name='en_ls')
-t_series.add_task("mean(q0)",                  name='q0')
+# TIME SERIES
+t_series = solver.evaluator.add_file_handler('time_series', iter=tseries,mode=fh_mode)
+t_series.add_task("mean(u0*u0+ S*u1*u1 + (1-S)*v1*v1 + S*w1*w1)/2", name='en_ls')
+t_series.add_task("mean(q0)", name='q0')
 t_series.add_task("sqrt(mean(q1(w1,q0)**2))", name='q1')
 
+# Flow properties
 flow = flow_tools.GlobalFlowProperty(solver, cadence=10)
-flow.add_property("(u0*u0 + S*u1*u1 + (1-S)*v1*v1 + S*w1*w1)/2", name='KE')
-flow.add_property("q0",                                             name='KE_q')
+flow.add_property("(u0*u0+ S*u1*u1 + (1-S)*v1*v1 + S*w1*w1)/2", name='KE')
+flow.add_property("q0", name='KE_q')
 
 # ══════════════════════════════════════════════════════════════════════════════
 # MAIN LOOP (unchanged from original)
@@ -405,14 +365,16 @@ flow.add_property("q0",                                             name='KE_q')
 try:
     logger.info('Starting loop')
     start_time = time.time()
-    while solver.proceed:
+    while (solver.proceed):
+#         dt = CFL.compute_dt()        
         solver.step(dt)
-        if (solver.iteration - 1) % 5000 == 0:
-            logger.info('Iteration: %i, Time: %e, dt: %e'
-                        % (solver.iteration, solver.sim_time, dt))
-            logger.info('average KE   = %e' % flow.volume_average('KE'))
-            logger.info('average KE_q = %e' % flow.volume_average('KE_q'))
-            if flow.volume_average('KE_q') < 1e-7:
+        
+        if (solver.iteration-1) % 5000 == 0:
+            logger.info('Iteration: %i, Time: %e, dt: %e' %(solver.iteration, solver.sim_time, dt))
+            logger.info('average KE = %e' %flow.volume_average('KE'))
+            logger.info('average KE_q = %e' %flow.volume_average('KE_q'))
+            q_avg = flow.volume_average('KE_q')
+            if (q_avg<1e-7):
                 logger.error('RELAMINARIZED. Ending run.')
                 raise
 except:
@@ -421,8 +383,8 @@ except:
 finally:
     solver.evaluate_handlers_now(dt)
     end_time = time.time()
-    logger.info('Iterations: %i'      % solver.iteration)
-    logger.info('Sim end time: %f'    % solver.sim_time)
-    logger.info('Run time: %.2f sec'  % (end_time - start_time))
-    logger.info('Run time: %f cpu-hr' % ((end_time - start_time)/3600
-                                         * domain.dist.comm_cart.size))
+    logger.info('Iterations: %i' %solver.iteration)
+    logger.info('Sim end time: %f' %solver.sim_time)
+    logger.info('Run time: %.2f sec' %(end_time-start_time))
+    logger.info('Run time: %f cpu-hr' %((end_time-start_time)/60/60*domain.dist.comm_cart.size))
+

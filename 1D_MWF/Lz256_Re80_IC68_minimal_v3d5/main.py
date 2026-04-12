@@ -35,7 +35,7 @@ import vector_cal as vc
 ##########
 
 # Create bases and domain
-z_basis = de.Fourier('z', Nz, interval=(0, Lz), dealias=3/2)
+z_basis = de.Fourier('z', Nz, interval=(0, Lz), dealias=2)
 domain = de.Domain([z_basis], grid_dtype=np.float64)#,mesh=(int(Nx/2),int(2*ncores/Nx)))
 
 # For general use
@@ -105,7 +105,10 @@ problem.substitutions['nu_zt(q0)'] = "C_zt*q0"
 problem.substitutions['q1(w1,q0)'] = "(-(wlam+w1)*dz(q0))/(beta**2/Re + 2*kappa + 2*alpha)"
 # Equtions of motion
 # Large scales
-problem.add_equation("dt(u0) + 3*alpha*u0 - dz(dz(u0))/Re + S*wlam*dz(u1) + (1-S)*v1*ulam*beta = -(1-S)*v1*u1*beta - S*w1*dz(u1)")
+
+# problem.add_equation("dt(u0) + 3*alpha*u0 - dz(dz(u0))/Re + S*wlam*dz(u1) + (1-S)*v1*ulam*beta = -(1-S)*v1*u1*beta - S*w1*dz(u1)") #Linear Drag
+problem.add_equation("dt(u0) - dz(dz(u0))/Re + S*wlam*dz(u1) + (1-S)*v1*ulam*beta = - 3*alpha*u0*u0**2/0.2**2 -(1-S)*v1*u1*beta - S*w1*dz(u1)") #Cubic Drag
+
 problem.add_equation("dt(u1) + alpha*u1 - dz(dz(u1))/Re + beta**2*u1/Re + wlam*dz(u0) = -A(q0)*beta*cos(theta) -w1*dz(u0)")
 problem.add_equation("dt(zeta) + alpha*beta*w1 - dz(dz(zeta))/Re + beta**2*zeta/Re = -beta**2*A(q0)*sin(theta) - dz(dz(A(q0)))*sin(theta)")
 problem.add_equation("zeta - (beta*w1-dz(v1)) = 0")

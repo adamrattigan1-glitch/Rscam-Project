@@ -35,7 +35,7 @@ import vector_cal as vc
 ##########
 
 # Create bases and domain
-z_basis = de.Fourier('z', Nz, interval=(0, Lz), dealias=3/2)
+z_basis = de.Fourier('z', Nz, interval=(0, Lz), dealias=2)
 domain = de.Domain([z_basis], grid_dtype=np.float64)#,mesh=(int(Nx/2),int(2*ncores/Nx)))
 
 # For general use
@@ -105,11 +105,14 @@ problem.substitutions['nu_zt(q0)'] = "C_zt*q0"
 problem.substitutions['q1(w1,q0)'] = "(-(wlam+w1)*dz(q0))/(beta**2/Re + 2*kappa + 2*alpha)"
 # Equtions of motion
 # Large scales
-problem.add_equation("dt(u0) + 3*alpha*u0 - dz(dz(u0))/Re + S*wlam*dz(u1) + (1-S)*v1*ulam*beta = -(1-S)*v1*u1*beta - S*w1*dz(u1)")
+
+# problem.add_equation("dt(u0) + 3*alpha*u0 - dz(dz(u0))/Re + S*wlam*dz(u1) + (1-S)*v1*ulam*beta = -(1-S)*v1*u1*beta - S*w1*dz(u1)") #Linear Drag
+problem.add_equation("dt(u0) - dz(dz(u0))/Re + S*wlam*dz(u1) + (1-S)*v1*ulam*beta = - 3*alpha*u0*u0**2/0.2**2 -(1-S)*v1*u1*beta - S*w1*dz(u1)") #Cubic Drag
+
 problem.add_equation("dt(u1) + alpha*u1 - dz(dz(u1))/Re + beta**2*u1/Re + wlam*dz(u0) = -A(q0)*beta*cos(theta) -w1*dz(u0)")
 problem.add_equation("dt(zeta) + alpha*beta*w1 - dz(dz(zeta))/Re + beta**2*zeta/Re = -beta**2*A(q0)*sin(theta) - dz(dz(A(q0)))*sin(theta)")
-problem.add_equation("zeta - (beta*w1-dz(v1)) = 0") #def of zeta 
-problem.add_equation("-beta*v1 + dz(w1) = 0") #incompressability 
+problem.add_equation("zeta - (beta*w1-dz(v1)) = 0")
+problem.add_equation("-beta*v1 + dz(w1) = 0")
 # Turbulence
 if rand_force:
     problem.add_equation("dt(q0) -dz(dz(q0))/Re = dz(nu_zt(q0)*dz(q0)) +  beta*A(q0)*cos(theta)*ulam/2 + beta*A(q0)*sin(theta)*wlam/2 + F(q0,mu,sigma,deltat) + beta*A(q0)*cos(theta)*u1/2 +beta*A(q0)*sin(theta)*w1/2 + A(q0)*sin(theta)*dz(v1)/2 - 2*alpha*q0 - eps(q0) -v1*q1(w1,q0)*beta/2 -(wlam+w1)*dz(q1(w1,q0))/2")
@@ -160,6 +163,43 @@ if not pathlib.Path('restart.h5').exists():
         q0['g'] += np.abs(np.min(q0['g']))+1e-4
         # Make the max Eq0
         q0['g'] *= Eq0/np.max(q0['g'])
+    elif IC_file=='equil':
+        ## Calibrated by MWF (newuq)
+        def A(q,a,eta,Re):
+            return a*((q**2 + eta**2)**(1/2) - eta)
+
+        def eps(q,c1,Re):
+            return c1*(Re/67)**(-1)*q
+        # Define nullclines (for plotting)
+        def null_u(q,beta,eta,a,alpha,Re):
+            return -beta*A(q,a,eta,Re)/(alpha+beta**2/Re) + 1 # u nullcline
+        def null_q(q,beta,eta,a,c1,alpha,Re): 
+            return (2*alpha*q + eps(q,c1,Re))/(beta*A(q,a,eta,Re)/2)
+        # Find equilibrium
+        qplt = np.linspace(1e-4,1,10000)
+        if (Re<73):
+            Re_fp = 74
+        else:
+            Re_fp = Re
+        # Equilibria
+        diff = np.abs(null_u(qplt,beta,eta,a,alpha,Re_fp)-null_q(qplt,beta,eta,a,c1,alpha,Re_fp))
+        ind1 = np.argsort(diff)[0]
+        ind2 = np.argsort(diff)[1]
+        # Check for the largest q
+        if qplt[ind1]<qplt[ind2]:
+            ind = ind2
+        else:
+            ind = ind1
+        qe = qplt[ind]
+        phase = np.random.uniform(low=-np.pi,high=np.pi,size=local_coeff_shape)
+        q0['c'][:]=0.0
+        q0['c'][cond] = E0*(np.cos(phase[cond])+1j*np.sin(phase[cond]))
+        q0['g'][:]+=qe
+        u1_se = null_u(qplt,beta,eta,a,alpha,Re_fp)[ind]-1
+        u1e = u1_se*np.cos(theta)
+        w1e = u1_se*np.sin(theta)
+        u1['g'][:]+=u1e
+        zeta['g'][:]+=(np.pi/2)*w1e
     else:
         q0.set_scales(3/2.)
         q_in = np.loadtxt(IC_file)
@@ -175,8 +215,8 @@ else:
     # Restart
     write, last_dt = solver.load_state('restart.h5', -1)
 
-    solver.sim_time = 0.0
-    solver.iteration = 1
+    ##solver.sim_time = 0.0
+    ##solver.iteration = 1
 
     # Timestepping and output
 #     dt = last_dt
