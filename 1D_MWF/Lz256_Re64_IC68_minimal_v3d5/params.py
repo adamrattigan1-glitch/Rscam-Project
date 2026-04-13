@@ -8,7 +8,8 @@ import sys
 Re = 64.0
 
 # Turbulent Reynolds numner
-C_zt = 0.05*Re
+# C_zt = 0.05*Re #Linear d
+C_zt = 0.035*Re #Cubic d
 
 # Angle of laminar solution
 theta = 24.0*np.pi/180.
@@ -21,7 +22,7 @@ beta = np.pi/2
 
 # Drag
 alpha = 0.01 #This is the alpha for linear 
-# alpha = 0.009 #This is the alpha for linear cubic
+# alpha = 0.012 #This is the alpha for cubic
 
 # Closures
 a    = 0.3

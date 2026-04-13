@@ -8,7 +8,8 @@ import sys
 Re = 80.0
 
 # Turbulent Reynolds numner
-C_zt = 0.05*Re
+# C_zt = 0.05*Re #Linear d
+C_zt = 0.035*Re #Cubic d
 
 # Angle of laminar solution
 theta = 24.0*np.pi/180.
@@ -55,7 +56,7 @@ dt_init= (Lz/Nz)**2/0.08/C_zt/16
 
 # Set how long you want to run for:
 ##sim_tmax = np.inf  # simulation time units
-sim_tmax = 20000  # simulation time units
+sim_tmax = np.inf  # simulation time units
 ##real_tmax = (11+55/60.)*60*60 # 12*60= 12 mins. Real time is in seconds ... 12 hours = 43200
 real_tmax = 30*60 # 12*60= 12 mins. Real time is in seconds ... 12 hours = 43200
 ##real_tmax = (14/60.)*60*60 # 12*60= 12 mins. Real time is in seconds ... 12 hours = 43200
